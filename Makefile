@@ -20,3 +20,7 @@ clean :
 		@echo 'Cleaning...'
 		@rm imagine ota pbzx 
 		@echo 'Cleaned'
+install :
+		@echo 'Installing iOS Utilities'
+		@echo cp /usr/local/bin/
+		@echo 'Installed iOS Utilities'
