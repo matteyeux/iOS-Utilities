@@ -11,13 +11,14 @@ Make sure you have GCC or Clang installed ! <br>
 Pbzx is an OTA Payload extractor writen by _Morpheus_
 
 ```
-morpheus@Zephyr (/tmp/OTA/payloadv2)$ ls -l payload p.xz
+User (/tmp/OTA/payloadv2)$ ls -l payload p.xz
 -rw-r--r--  1 root      admin  443537788 Mar 18 13:47 p.xz
--rw-r--r--@ 1 morpheus  admin  443539064 Feb 26 07:16 payload
-morpheus@Zephyr (/tmp/OTA/payloadv2)$ xz --decompress p.xz
-morpheus@Zephyr (/tmp/OTA/payloadv2)$ ls -l p
+-rw-r--r--@ 1 user  admin  443539064 Feb 26 07:16 payload
+User (/tmp/OTA/payloadv2)$ xz --decompress p.xz
+User (/tmp/OTA/payloadv2)$ ls -l p
 -rw-r--r--  1 root  admin  1310837211 Mar 18 13:47 p
-morpheus@Zeyphr (/tmp/OTA/payloadv2)$ file p
+User (/tmp/OTA/payloadv2)$ file p
+p: VAX demand paged (first page unmapped) pure executable not stripped 
 ```
 
 ###OTAA
