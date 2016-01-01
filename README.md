@@ -8,7 +8,7 @@ Make sure you have GCC or Clang installed ! <br>
 
 ###Pzbx
 
-Pbzx is an OTA Payload extractor writen by _Morpheus_
+Pbzx is an OTA Payload extractor written by _Morpheus_
 
 ```
 User (/tmp/OTA/payloadv2)$ ls -l payload p.xz
