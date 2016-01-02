@@ -22,5 +22,5 @@ clean :
 		@echo 'Cleaned'
 install :
 		@echo 'Installing iOS Utilities'
-		@ cp /usr/local/bin/
+		@ cp ota reimagine pbzx /usr/local/bin/
 		@echo 'Installed iOS Utilities'
