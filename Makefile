@@ -22,5 +22,5 @@ clean :
 		@echo 'Cleaned'
 install :
 		@echo 'Installing iOS Utilities'
-		@echo cp /usr/local/bin/
+		@ cp /usr/local/bin/
 		@echo 'Installed iOS Utilities'
