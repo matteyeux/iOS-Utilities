@@ -11,14 +11,21 @@ Make sure you have GCC or Clang installed ! <br>
 Pbzx is an OTA Payload extractor written by _Morpheus_
 
 ```
-User (/tmp/OTA/payloadv2)$ ls -l payload p.xz
--rw-r--r--  1 root      admin  443537788 Mar 18 13:47 p.xz
--rw-r--r--@ 1 user  admin  443539064 Feb 26 07:16 payload
-User (/tmp/OTA/payloadv2)$ xz --decompress p.xz
-User (/tmp/OTA/payloadv2)$ ls -l p
--rw-r--r--  1 root  admin  1310837211 Mar 18 13:47 p
-User (/tmp/OTA/payloadv2)$ file p
-p: VAX demand paged (first page unmapped) pure executable not stripped 
+$ ./pbzx  < payload > pb.xz  
+Flags: 0x1000000
+Chunk #1 (flags: 1000000, length: 6066008 bytes) 
+Chunk #2 (flags: 1000000, length: 14240912 bytes) 
+Chunk #3 (flags: 1000000, length: 14231772 bytes) 
+Chunk #4 (flags: 1000000, length: 16777216 bytes) 
+Warning: Can't find XZ header. Instead have 0x16c3201e(?).. This is likely not XZ data.
+Chunk #5 (flags: 1000000, length: 16777216 bytes) 
+Warning: Can't find XZ header. Instead have 0xf52ffff9(?).. This is likely not XZ data.
+Chunk #6 (flags: 1000000, length: 14112620 bytes) 
+Chunk #7 (flags: 1000000, length: 3866128 bytes) 
+... # Business as usual in the modified version
+Chunk #114 (flags: 1000000, length: 6347484 bytes) 
+Chunk #115 (flags: 1000000, length: 3935192 bytes) 
+Chunk #116 (flags: e7cfca, length: 2839680 bytes)
 ```
 
 ###OTAA
