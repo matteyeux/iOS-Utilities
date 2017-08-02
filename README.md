@@ -1,6 +1,6 @@
 # iOS Utilities
-Here is some usefull iOS tools written by J Levin. <br>
-temp PS : Makefile might be broken right now 
+Here is some usefull iOS tools written by [Jonathan Levin](https://twitter.com/Morpheus______). <br>
+ 
 
 I added a Makefile to build these tools on Linux & OS X. <br>
 Make sure you have GCC or Clang installed ! <br>
@@ -43,3 +43,8 @@ Imagine is an img3 file format dumper, with a focus on device tree files
 ```
 Usage: ./imagine [-d] _filename_
 ```
+### Links 
+newosxbook.com
+http://technologeeks.com/index.jl
+
+temp PS : Makefile might be broken right now
