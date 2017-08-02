@@ -44,7 +44,7 @@ Imagine is an img3 file format dumper, with a focus on device tree files
 Usage: ./imagine [-d] _filename_
 ```
 ### Links 
-newosxbook.com
+http://newosxbook.com <br>
 http://technologeeks.com/index.jl
 
 temp PS : Makefile might be broken right now
