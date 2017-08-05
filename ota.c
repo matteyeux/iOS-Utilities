@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #define _GNU_SOURCE 1 
 #include <string.h>
 
