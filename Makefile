@@ -1,26 +1,24 @@
-CC = gcc
+all: pbzx imagine ota
 
-all :	pbzx imagine ota 
-
-pbzx : 
+pbzx:
 		@echo 'Building pbzx...'
-		@$(CC) pbzx.c -o pbzx 
+		@$(CC) 02_decompress.c pbzx.c -o pbzx -llzma
 		@echo 'Successfully built pbzx'
 
-imagine : 
+imagine:
 		@echo 'Building imagine...'
 		@$(CC) imagine.c -o imagine -w
 		@echo 'Successfully built imagine'
-ota :
+ota:
 		@echo 'Building ota...'
-		@$(CC) ota.c -o ota 
+		@$(CC) ota.c -o ota
 		@echo 'Successfully built ota'
 
-clean :
+clean:
 		@echo 'Cleaning...'
-		@rm imagine ota pbzx 
+		@rm -f imagine ota pbzx
 		@echo 'Cleaned'
-install :
+install:
 		@echo 'Installing iOS Utilities'
-		@ cp ota imagine pbzx /usr/local/bin/
+		@cp ota imagine pbzx /usr/local/bin/
 		@echo 'Installed iOS Utilities'
