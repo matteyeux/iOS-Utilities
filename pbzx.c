@@ -2,29 +2,12 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <errno.h>
 #include <stdlib.h>
-
+#include <stdint.h>
 // Changelog:
 // 02/17/2016 - Fixed so it works with Apple TV OTA PBZX
-// 07/28/2016 - Fixed to handle uncompressed chunks and integrate XZ (via liblzma)
 
-
-// To compile: gcc pbzx.c 02_decompress.c -o pbzx -llzma
-// On Linux, make sure to install xz-devel first
-
-typedef unsigned long long uint64_t;
-typedef unsigned int uint32_t;
-
-#define PBZX_MAGIC	"pbzx"
-
-
-// This is in 02_decompress.c, modified from liblzma's examples
-// I intentionally left that external since it's not my code.
-
-extern void 	decompressXZChunkToStdout(char *buf, int length);
-
-
+#define PBZX_MAGIC      "pbzx"
 
 int main(int argc, const char * argv[])
 {
@@ -41,10 +24,10 @@ int main(int argc, const char * argv[])
          }
 
     if (argc ==3) {
-	minChunk = atoi(argv[2]);
-	fprintf(stderr,"Starting from Chunk %d\n", minChunk);
+        minChunk = atoi(argv[2]);
+        fprintf(stderr,"Starting from Chunk %d\n", minChunk);
 
-	}
+        }
 
     read (fd, buffer, 4);
     if (memcmp(buffer, PBZX_MAGIC, 4)) { fprintf(stderr, "Can't find pbzx magic\n"); exit(0);}
@@ -74,53 +57,29 @@ int main(int argc, const char * argv[])
     skipChunk = (i < minChunk);
     fprintf(stderr,"Chunk #%d (flags: %llx, length: %lld bytes) %s\n",i, flags,length,
      skipChunk? "(skipped)":"");
-     
-
 
     // Let's ignore the fact I'm allocating based on user input, etc..
     char *buf = malloc (length);
+    read (fd, buf, length);
 
-    int bytes = read (fd, buf, length);
-    int totalBytes = bytes;
-
-    // 6/18/2017 - Fix for WatchOS 4.x OTA wherein the chunks are bigger than what can be read in one operation
-    while (totalBytes < length) {
-		// could be partial read
-		bytes = read (fd, buf +totalBytes, length -totalBytes);
-		totalBytes +=bytes;
-	}	
-	
-
-
-   // We want the XZ header/footer if it's the payload, but prepare_payload doesn't have that, 
+   // We want the XZ header/footer if it's the payload, but prepare_payload doesn't have that,
     // so just warn.
-    
-    if (memcmp(buf, "\xfd""7zXZ", 6))  { warn++; 
-		fprintf (stderr, "Warning: Can't find XZ header. Instead have 0x%x(?).. This is likely not XZ data.\n",
-			(* (uint32_t *) buf ));
 
-		// Treat as uncompressed
-        	write (1, buf, length);
-		
-		
-		}
+
+    if (memcmp(buf, "\xfd""7zXZ", 6))  { warn++;
+                fprintf (stderr, "Warning: Can't find XZ header. Instead have 0x%x(?).. This is likely not XZ data.\n",
+                        (* (uint32_t *) buf ));
+
+                }
     else // if we have the header, we had better have a footer, too
-	{
-    if (strncmp(buf + length - 2, "YZ", 2)) { warn++; fprintf (stderr, "Warning: Can't find XZ footer at 0x%llx (instead have %x). This is bad.\n",
-		(length -2),
-		*((unsigned short *) (buf + length - 2))); 
-		}
-	if (1 && !skipChunk)
-	{
-	// Uncompress chunk
+    if (strncmp(buf + length -2, "YZ", 2)) { warn++; fprintf (stderr, "Warning: Can't find XZ footer. This is bad.\n"); }
+        if (!warn && !skipChunk)
+        {
+        write (1, buf, length);
+        }
+        warn = 0;
 
-	decompressXZChunkToStdout(buf, length);
-
-	}
-	warn = 0;
-
-	}
     }
 
     return 0;
-} 
+}
