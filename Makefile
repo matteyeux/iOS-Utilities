@@ -2,7 +2,7 @@ all: pbzx imagine ota
 
 pbzx:
 		@echo 'Building pbzx...'
-		@$(CC) 02_decompress.c pbzx.c -o pbzx -llzma
+		@$(CC) pbzx.c -o pbzx
 		@echo 'Successfully built pbzx'
 
 imagine:

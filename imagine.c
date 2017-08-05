@@ -8,7 +8,7 @@
 
 
 /**
-  * Imagine: A rudimentary (decrypted) img3 file format dumper, 
+  * Imagine: A rudimentary (decrypted) img3 file format dumper,
   *          With specific focus on device tree files
   *
   *
@@ -29,12 +29,12 @@ typedef unsigned int uint32_t;
 #include "dt.h"		   // for DeviceTree
 
 typedef struct img3 {
-    uint32_t          magic;   
-    uint32_t       fullSize;   
-    uint32_t     sizeNoPack;   
-    uint32_t   sigCheckArea;  
-    uint32_t          ident;  
- 
+    uint32_t          magic;
+    uint32_t       fullSize;
+    uint32_t     sizeNoPack;
+    uint32_t   sigCheckArea;
+    uint32_t          ident;
+
 } img3;
 
 typedef struct tag {
@@ -47,7 +47,7 @@ unsigned char  data[0];
 #define IMG3_MAGIC 0x496d6733
 #define TAG_TYPE  0x54595045
 #define TAG_DATA  0x44415441
-#define TAG_VERS  0x56455253 
+#define TAG_VERS  0x56455253
 #define TAG_SEPO  0x5345504f
 #define TAG_CHIP  0x43484950
 #define TAG_BORD  0x424f5244
@@ -59,7 +59,7 @@ unsigned char  data[0];
 
 
 int g_Dump = 0;
-void 
+void
 dump (unsigned char *data, int len)
 {
    int i;
@@ -68,7 +68,7 @@ dump (unsigned char *data, int len)
 	  printf ("%02x ", data[i]);
 	}
 
- 
+
    printf ("\n");
 
 }
@@ -88,7 +88,7 @@ void copyValue (char *dest, char *src, int length)
 
 
 
-uint32_t 
+uint32_t
 dumpTreeNode(DeviceTreeNode *Node, int indent)
 {
 		  char buffer[40960];
@@ -115,7 +115,7 @@ dumpTreeNode(DeviceTreeNode *Node, int indent)
 		      if (strcmp(dtp->name,"name") == 0)
 			{
 			 name = (char *) &dtp->length + sizeof(uint32_t);
-			 strncat(buffer, name, dtp->length);	
+			 strncat(buffer, name, dtp->length);
 			 strcat (buffer,"\n");
 			}
 		      else
@@ -126,12 +126,12 @@ dumpTreeNode(DeviceTreeNode *Node, int indent)
 		       strcat (buffer, temp);
 			strcat(buffer, "\n");
 				}
-		      
+
 	              dtp =  ((char *) dtp) + sizeof(DeviceTreeNodeProperty) + dtp->length ;
-	
+
 		      // Align
 		      dtp =  (((long) dtp %4) ? ((char *) dtp)  + (4 - ((long)dtp) %4)   : dtp);
-	
+
 		  	offset = (char *) dtp;
 		   }
 
@@ -145,12 +145,12 @@ dumpTreeNode(DeviceTreeNode *Node, int indent)
 			{
 			  offset+= dumpTreeNode ( (DeviceTreeNode *) offset, indent+1 );
 			}
-		 
+
 	     return ( (char *) offset - (char*) Node);
  }
 
 
-void 
+void
 doData (char *data, int tag, int len)
 {
 
@@ -159,7 +159,7 @@ doData (char *data, int tag, int len)
 	switch (tag)
 	{
 		case TYPE_DTRE:
-		 { 
+		 {
 		  DeviceTreeNode *dtn = (DeviceTreeNode *) data;
 		  DeviceTreeNode *root = (DeviceTreeNode *) data;
 		  int prop = 0;
@@ -169,12 +169,12 @@ doData (char *data, int tag, int len)
 		  printf ("\tMore than 20 properties? Did you hand me an encrypted file?\n");
 		  return;
 		}
-	
-		 
+
+
 		  printf ("\tDevice Tree with %d properties and %d children\n",
 				dtn->nProperties, dtn->nChildren);
 
-		  if (g_Dump)		
+		  if (g_Dump)
 		   {
 		  printf ("Properties:\n");
 
@@ -183,21 +183,21 @@ doData (char *data, int tag, int len)
 		  else { printf("\tUse -d to dump the device tree\n");}
 		}
 
-		 
+
 	}
-		
+
 
 
 }
 
-int 
+int
 main(int argc, char **argv)
 {
 
    struct stat	stbuf;
    char *filename;
    int rc;
-   int fd; 
+   int fd;
    int filesize;
    char *mmapped;
    img3 *img3Header;
@@ -206,7 +206,7 @@ main(int argc, char **argv)
    char type[5];
    int i;
 
-   
+
    // Usage/arguments could be better. This is just a simple quick and dirty
    // example. Excuse my brevity..
 
@@ -215,7 +215,7 @@ main(int argc, char **argv)
 
    if (strcmp(argv[1], "-d") == 0) { g_Dump++;  }
 
-  
+
    filename = argv[argc -1];
 
    rc = stat(filename, &stbuf);
@@ -251,7 +251,7 @@ main(int argc, char **argv)
 	   ident[i] = * (((char *)&(img3Header->ident)) + 3-i);
 
 	}
-    
+
    printf ("Ident: %s\n", ident);
 
    tag = (struct tag *) (mmapped + sizeof(img3));
@@ -298,12 +298,12 @@ main(int argc, char **argv)
 
 	}
 
-	
+
    tag = (( (char *) tag) + (tag->total_length));
    }
 
 
 
-  return 0;  
+  return 0;
 
 }
