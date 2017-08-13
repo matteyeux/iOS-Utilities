@@ -9,7 +9,7 @@ For your convenience, a `Makefile` has been added to make the build process easi
 ### pbzx [(source)](http://newosxbook.com/src.jl?tree=listings&file=pbzx.c)
 
 ```
-$ ./pbzx  < payload > payload2.xz
+$ ./pbzx  < payload > payload2
 Flags: 0x1000000
 Chunk #1 (flags: 1000000, length: 6066008 bytes)
 Chunk #2 (flags: 1000000, length: 14240912 bytes)
