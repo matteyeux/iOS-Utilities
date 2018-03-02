@@ -1,10 +1,9 @@
-#include <stdint.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <signal.h>
-#define _GNU_SOURCE 1 
+#include <stdint.h>
+#define _GNU_SOURCE 1
 #include <string.h>
 
 #include <sys/stat.h> // for mkdir
@@ -34,9 +33,14 @@ extern void *memmem (const void *__haystack, size_t __haystacklen,
  *
  *            08/31/16 - Added search in OTA.
  * 
+ *            02/28/18 - It's been a while - and ota now does diff!
+ *                       Also tidied up and made neater
+ *
+ *  To compile: gcc otaa.c -o ota
+ *  		Remember to add '-DLINUX' if on Linux
  *
  */
-	uint64_t pos = 0;
+uint64_t pos = 0;
 typedef 	unsigned int	uint32_t;
 
 #pragma pack(1)
@@ -53,7 +57,6 @@ struct entry
  unsigned short uid;
  unsigned short gid;
  unsigned short perms;
-
  char name[0];
  // Followed by file contents
 };
@@ -73,6 +76,37 @@ int g_verbose = 0;
 char *g_extract = NULL;
 char *g_search = NULL;
 
+
+
+// Since I now diff and use open->mmap(2) on several occasions, refactored
+// into its own function
+//
+void *mmapFile(char *FileName, uint64_t *FileSize)
+{
+
+	int fd = open (FileName, O_RDONLY);
+	if (fd < 0) { perror (FileName); exit(1);}
+
+	// 02/17/2016 - mmap
+
+	struct stat stbuf;
+	int rc = fstat(fd, &stbuf);
+
+	char *mmapped =  mmap(NULL, // void *addr,
+			      stbuf.st_size ,	// size_t len,
+			      PROT_READ,        // int prot,
+			      MAP_PRIVATE,                //  int flags,
+			      fd,               // int fd,
+			      0);               // off_t offset);
+
+
+	if (mmapped == MAP_FAILED)  { perror (FileName); exit(1);}
+
+	if (FileSize) *FileSize = stbuf.st_size;
+
+	close (fd);
+	return (mmapped);
+}
 void 
 extractFile (char *File, char *Name, uint32_t Size, short Perms, char *ExtractCriteria)
 {
@@ -115,28 +149,195 @@ extractFile (char *File, char *Name, uint32_t Size, short Perms, char *ExtractCr
 
 void showPos()
 {
-	fprintf(stderr, "POS is %lld\n", pos);
+	fprintf(stderr, "POS is %lu\n", pos);
+}
+
+struct entry *getNextEnt (char *Mapping, uint64_t Size, uint64_t *Pos)
+{
+	// Return entry at Mapping[Pos],
+	// and advance Pos to point to next one
+
+	int pos = 0;
+	struct entry *ent =(struct entry *) (Mapping + *Pos );
+
+	if (*Pos > Size) return (NULL);
+	*Pos += sizeof(struct entry);
+
+	uint32_t entsize = swap32(ent->fileSize);
+	uint32_t nameLen = ntohs(ent->nameLen);
+        // Get Name (immediately after the entry)
+        //char *name = malloc (nameLen+1);
+        // strncpy(name, Mapping+ *Pos , nameLen);
+        //name[nameLen] = '\0';
+	//printf("NAME %p IS %s, Size: %d\n", Mapping, name, entsize);
+	//free (name);
+	*Pos += nameLen;
+	*Pos += entsize;
+
+	return (ent);
+
+} // getNextEnt
+
+
+int doDiff (char *File1, char *File2, int Exists)
+{
+
+	// There are two ways to do diff:
+	// look at both files as archives, find diffs, then figure out diff'ing entry,
+	// or look at file internal entries individually, then compare each of them
+	// I chose the latter. This also (to some extent) survives file ordering
+
+	// Note I'm still mmap(2)ing BOTH files. This contributes to speed, but does
+	// have the impact of consuming lots o'RAM. That said, this is to be run on a
+	// Linux/MacOS, and not on an i-Device, so we should be ok.
+
+	uint64_t file1Size = 0;
+
+	char *file1Mapping = mmapFile(File1, &file1Size);
+	uint64_t file2Size = 0;
+	char *file2Mapping = mmapFile(File2, &file2Size);
+
+
+	uint64_t file1pos = 0;
+	uint64_t file2pos = 0;
+
+	struct entry *file1ent = getNextEnt (file1Mapping, file1Size, &file1pos);
+	struct entry *file2ent  = getNextEnt (file2Mapping,file2Size, &file2pos);
+
+	uint64_t lastFile1pos, lastFile2pos = 0;
+
+	while (file1ent && file2ent) {
+
+		lastFile1pos = file1pos;
+		lastFile2pos = file2pos;
+
+		file1ent = getNextEnt (file1Mapping, file1Size, &file1pos);
+		file2ent = getNextEnt (file2Mapping,file2Size, &file2pos);
+
+		char *ent1Name = file1ent->name;
+		char *ent2Name = file2ent->name;
+
+		// Because I'm lazy: skip last entry
+		if (file1pos > file1Size - 1000000) break;
+
+		int found = 1;
+
+		char *n1 = strndup(file1ent->name, ntohs(file1ent->nameLen));
+		if (strncmp(ent1Name, ent2Name, ntohs(file1ent->nameLen)))
+			{
+				// Stupid names aren't NULL terminated (AAPL don't read my comments,
+				// apparently), so we have to copy both names in:
+
+				// But that's the least of our problems: We don't know if n1 has been removed
+				// from n2, or n2 is a new addition:
+				uint64_t seekpos = file2pos;
+				// seek n1 in file2:
+
+				found = 0;
+				int i = 0;
+
+				struct entry *seek2ent;
+				while (1) {
+					seek2ent = getNextEnt (file2Mapping,file2Size, &seekpos);
+
+					if (!seek2ent) { break; } // {printf("EOF\n");break;}
+
+					if (memcmp(seek2ent->name,file1ent->name, ntohs(seek2ent->nameLen)) == 0) {
+
+						found++; break;
+					}
+					else {
+/*
+						i++;
+						if (i < 200) {
+						char *n2 = strndup(seek2ent->name, ntohs(seek2ent->nameLen));
+
+						printf("check: %s(%d) != %s(%d) -- %d\n",n2, ntohs(seek2ent->nameLen),n1, strlen(n1),
+					memcmp(seek2ent->name,file1ent->name, ntohs(seek2ent->nameLen) ));
+						free(n2);
+
+						}
+*/
+					  }
+				} // end while
+
+				if (!found) {
+						printf("%s: In file1 but not file2\n", n1);
+						// rewind file2pos so we hit the entry again..
+						file2pos = lastFile2pos;
+					    }
+				else {
+						// Found it - align (all the rest to this point were not in file1)
+						file2pos = seekpos;
+					}
+
+
+			} // name mismatch
+
+		if (found) {
+			// Identical entries - check for diffs unless we're only doing existence checks
+
+			// if the sizes diff, obviously:
+
+			if (!Exists) {
+			if (file1pos - lastFile1pos != file2pos - lastFile2pos)
+				{ fprintf(stdout,"%s (different sizes)\n", n1); }
+			else
+				// if sizes are identical, maybe - but ignore timestamp!
+			if (memcmp (((unsigned char *)file1ent) + sizeof(struct entry),
+				    ((unsigned char *)file2ent) + sizeof(struct entry), file1pos - lastFile1pos - sizeof(struct entry)))
+			{ fprintf(stdout,"%s\n", n1); }
+
+			}
+		free (n1);
+		}
+
+	} // end file1pos
+	return 0;
 }
 int 
 main(int argc ,char **argv)
 {
 
-	signal (2, showPos);
 	char *filename ="p";
 	int i = 0;
 
 	if (argc < 2) {
 		fprintf (stderr,"Usage: %s [-v] [-l] [-e file] _filename_\nWhere: -l: list files in update payload\n"
 				"       -e _file: extract file from update payload (use \"*\" for all files)\n"
-				"       -s _string _file: Look for occurences of _string_ in file\n", argv[0]);
+				"       -s _string _file: Look for occurences of _string_ in file\n"
+				"       [-n] -d _file1 _file2: Point out differences between OTA _file1 and _file2\n"
+				"                              -n to only diff names\n", argv[0]);
 		exit(10);
 		}
 	
+	int exists = 0;
+
 	for (i = 1;
 	     i < argc -1;
 	     i++)
 	    {
 		// This is super quick/dirty. You might want to rewrite with getopt, etc..
+		if (strcmp(argv[i], "-n") == 0) {
+					exists++;
+			}
+		if (strcmp (argv[i] , "-d") == 0) {
+		  // make sure we have argv[i+1] and argv[i+2]...
+
+		  if (i != argc - 3)
+			{
+				fprintf(stderr,"-d needs exactly two arguments - two OTA files to compare\n");
+				exit(6);
+			}
+
+		  // that the files exist...
+		  if (access (argv[i+1], F_OK)) { fprintf(stderr,"%s: not a file\n", argv[i+1]); exit(11); }
+		  if (access (argv[i+2], F_OK)) { fprintf(stderr,"%s: not a file\n", argv[i+2]); exit(12); }
+
+		  // then do diff
+		  return ( doDiff (argv[i+1],argv[i+2], exists));
+
+		}
 		if (strcmp (argv[i], "-l") == 0) { g_list++;} 
 		if (strcmp (argv[i] , "-v") == 0) { g_verbose++;}
 		if (strcmp (argv[i], "-e") == 0) { 
@@ -151,45 +352,37 @@ main(int argc ,char **argv)
 					    exit(5); }
 			g_search = argv[i+1];
 			i++;	 }
-			
+
 
 	    }
-	
-	filename =argv[argc-1];
+
+
+	// Another little fix if user forgot filename, rather than try to open
+	if (argv[argc-1][0] == '-') {
+		fprintf(stderr,"Must supply filename\n"); exit(5);
+	}
+
+	filename = argv[argc-1];
+
 	//unsigned char buf[4096];
 
-	int fd = open (filename, O_RDONLY);
-	if (fd < 0) { perror (filename); exit(1);}
+	uint64_t fileSize;
 
-	// 02/17/2016 - mmap
-	
-	struct stat stbuf;
-	int rc = fstat(fd, &stbuf);
+	char *mmapped = mmapFile(filename, &fileSize);
 
-	char *mmapped =  mmap(NULL, // void *addr,
-			      stbuf.st_size ,	// size_t len, 
-			      PROT_READ,        // int prot,
-			      MAP_PRIVATE,                //  int flags,
-			      fd,               // int fd, 
-			      0);               // off_t offset);
-
-
-	if (mmapped == MAP_FAILED)  { perror ("mmap"); exit(1);}
 	i = 0;
 
 	struct entry *ent = alloca (sizeof(struct entry));
 
-	while(pos + 3*sizeof(struct entry) < stbuf.st_size) {
-	
+	while(pos + 3*sizeof(struct entry) < fileSize) {
 	ent = (struct entry *) (mmapped + pos );
-	
 	pos += sizeof(struct entry);
 
 	if ((ent->usually_0x210_or_0x110 != 0x210 && ent->usually_0x210_or_0x110 != 0x110 &&
 		ent->usually_0x210_or_0x110 != 0x310) || 
 		ent->usually_0x00_00)
 	{
-		fprintf (stderr,"Corrupt entry (0x%x at pos %llu).. skipping\n", ent->usually_0x210_or_0x110,pos);
+		fprintf (stderr,"Corrupt entry (0x%x at pos %lu).. skipping\n", ent->usually_0x210_or_0x110,pos);
 		int skipping = 1;
 
 		while (skipping)
@@ -255,17 +448,17 @@ main(int argc ,char **argv)
 		{
 			if (g_extract) { extractFile(mmapped +pos, name, fileSize, perms, g_extract);}
 
-	
 
 			// Added 08/31/16 - And I swear I should have this from the start.
 			// So darn simple and sooooo useful!
+
 			if (g_search){
 				char *found = memmem (mmapped+pos, fileSize, g_search, strlen(g_search));
 				while (found != NULL)
 				{
 				int relOffset = found - mmapped - pos;
 				
-				fprintf(stdout, "Found in Entry: %s, relative offset: %llx (Absolute: %lx)\n",
+				fprintf(stdout, "Found in Entry: %s, relative offset: 0x%x (Absolute: %lx)\n",
 					name,
 					relOffset,
 					found - mmapped);
@@ -278,17 +471,8 @@ main(int argc ,char **argv)
 
 			pos +=fileSize;
 		}
-
-
-
 	
 	free (name);
 
 	} // Back to loop
-
-
-	
-
-	close(fd);
-
 }
