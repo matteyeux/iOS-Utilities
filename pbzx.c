@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 // Changelog:
 // 02/17/2016 - Fixed so it works with Apple TV OTA PBZX
@@ -22,7 +23,7 @@ typedef unsigned int uint32_t;
 // This is in 02_decompress.c, modified from liblzma's examples
 // I intentionally left that external since it's not my code.
 
-extern void 	decompressXZChunkToStdout(char *buf, int length);
+extern bool 	decompressXZChunkToStdout(char *buf, int length);
 
 
 
@@ -64,6 +65,9 @@ int main(int argc, const char * argv[])
     int warn = 0 ;
     int skipChunk = 0;
 
+    char *buf = NULL;
+    int buf_len = 0;
+
     while (flags &   0x01000000) { // have more chunks
     i++;
     read (fd, &flags, sizeof (uint64_t));
@@ -74,11 +78,14 @@ int main(int argc, const char * argv[])
     skipChunk = (i < minChunk);
     fprintf(stderr,"Chunk #%d (flags: %llx, length: %lld bytes) %s\n",i, flags,length,
      skipChunk? "(skipped)":"");
+    fflush(stderr);
      
 
-
+    if (buf_len < length) {
     // Let's ignore the fact I'm allocating based on user input, etc..
-    char *buf = malloc (length);
+        buf = realloc (buf, length);
+        buf_len = length;
+    }
 
     int bytes = read (fd, buf, length);
     int totalBytes = bytes;
@@ -98,6 +105,7 @@ int main(int argc, const char * argv[])
     if (memcmp(buf, "\xfd""7zXZ", 6))  { warn++; 
 		fprintf (stderr, "Warning: Can't find XZ header. Instead have 0x%x(?).. This is likely not XZ data.\n",
 			(* (uint32_t *) buf ));
+		fflush(stderr);
 
 		// Treat as uncompressed
         	write (1, buf, length);
@@ -106,15 +114,21 @@ int main(int argc, const char * argv[])
 		}
     else // if we have the header, we had better have a footer, too
 	{
-    if (strncmp(buf + length - 2, "YZ", 2)) { warn++; fprintf (stderr, "Warning: Can't find XZ footer at 0x%llx (instead have %x). This is bad.\n",
-		(length -2),
-		*((unsigned short *) (buf + length - 2))); 
-		}
+    if (strncmp(buf + length - 2, "YZ", 2)) {
+	    warn++;
+	    fprintf(stderr, "Warning: Can't find XZ footer at 0x%llx (instead have %x). This is bad.\n",
+		    (length -2),
+		    *((unsigned short *) (buf + length - 2)));
+	    fflush(stderr);
+	}
 	if (1 && !skipChunk)
 	{
 	// Uncompress chunk
 
-	decompressXZChunkToStdout(buf, length);
+	if (!decompressXZChunkToStdout(buf, length)) {
+	    fprintf(stderr, "Warning: Failed to decompress chunk");
+	    fflush(stderr);
+	}
 
 	}
 	warn = 0;
