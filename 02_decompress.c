@@ -60,7 +60,7 @@ init_decoder(lzma_stream *strm)
 	// /usr/include/lzma/container.h depending on the install prefix)
 	// for details.
 	lzma_ret ret = lzma_stream_decoder(
-			strm, UINT64_MAX, LZMA_CONCATENATED);
+			strm, 3ULL * 1024 * 1024 * 1024, LZMA_CONCATENATED);
 
 	// Return successfully if the initialization went fine.
 	if (ret == LZMA_OK)
@@ -371,15 +371,16 @@ decompressBytes(lzma_stream *strm, const char *inbytes, int size)
 
 }
 	
-void	decompressXZChunkToStdout(char *buf, int size)
+bool    decompressXZChunkToStdout(char *buf, int size)
 {
 	lzma_stream strm = LZMA_STREAM_INIT;
 	init_decoder(&strm);
 
-	decompressBytes(&strm, buf, size);
+	bool ret = decompressBytes(&strm, buf, size);
 
+	lzma_end(&strm);
 
-
+	return ret;
 }
 
 #else // Original code unmodified
